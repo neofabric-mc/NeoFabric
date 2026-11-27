@@ -460,7 +460,9 @@ tasks.register('javadocJar', Jar) {
 	archiveClassifier = 'javadoc'
 }
 
-build.dependsOn javadocJar
+if (!legacyMinecraft) {
+	build.dependsOn javadocJar
+}
 
 allprojects {
 	checkstyle {

@@ -53,6 +53,7 @@ def legacyCompiler = javaToolchains.compilerFor {
 // These suites assert the standard artifact's whitelist, payloads and strict opt-in policy.
 // CI still runs them on the standard build. The 1.18.2 consumer checks the variant's contract.
 tasks.named('test', Test) {
+	systemProperty 'neofabric.test.allowUnmarkedMods', 'true'
 	exclude '**/NeoFabricGameVersionTest.class', '**/NeoFabricGateTest.class',
 			'**/BundledApiRegistryTest.class', '**/BundledApiVersionsTest.class', '**/BundledModCandidateFinderTest.class'
 }

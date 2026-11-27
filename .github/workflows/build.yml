@@ -32,8 +32,10 @@ jobs:
           git worktree add --detach "$RUNNER_TEMP/neofabric-base" "$BASE_REF"
           baseline="$RUNNER_TEMP/neofabric-base"
           bash "$baseline/gradlew" -p "$baseline" finalJar -Pneofabric.minecraftTestVersion=none --stacktrace --max-workers=2
-          standard=$(find build/libs -maxdepth 1 -name 'neofabric-loader-*.jar' ! -name '*-fat.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar')
-          python3 .github/scripts/compare-standard-jars.py "$baseline"/build/libs/neofabric-loader-*.jar "$standard"
+          standard_jar() {
+            find "$1/build/libs" -maxdepth 1 -name 'neofabric-loader-*.jar' ! -name '*-fat.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar'
+          }
+          python3 .github/scripts/compare-standard-jars.py "$(standard_jar "$baseline")" "$(standard_jar "$PWD")"
       - name: Upload core test reports
         if: always()
         uses: actions/upload-artifact@v4

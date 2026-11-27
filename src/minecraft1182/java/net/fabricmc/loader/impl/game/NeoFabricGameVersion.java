@@ -31,6 +31,7 @@ public final class NeoFabricGameVersion {
 
 	public static void check(GameProvider provider) {
 		String version = provider != null ? provider.getNormalizedGameVersion() : null;
+
 		if (provider == null || !"minecraft".equals(provider.getGameId()) || !isSupported(version)) {
 			String game = provider != null ? provider.getGameName() : null;
 			throw new FormattedException("不支持的游戏版本", "这个 NeoFabric 产物仅支持 Minecraft 1.18.2，当前为 %s %s。",
