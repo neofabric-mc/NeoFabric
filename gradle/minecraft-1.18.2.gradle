@@ -1,0 +1,66 @@
+// Compile the two target-specific changes without editing the standard Loader inputs.
+// Verify the shared discovery anchor on every build so a change cannot silently disable the port.
+def sharedJava = file('src/main/java')
+def targetJava = file('src/minecraft1182/java')
+def sharedResources = file('src/main/resources')
+def targetResources = file('src/minecraft1182/resources')
+def gameVersionPath = 'net/fabricmc/loader/impl/game/NeoFabricGameVersion.java'
+def discoveryPath = 'net/fabricmc/loader/impl/discovery/ModDiscoverer.java'
+def sharedDiscovery = new File(sharedJava, discoveryPath)
+def output = layout.buildDirectory.dir('generated/legacyDiscovery')
+def generateLegacyDiscovery = tasks.register('generateLegacyDiscovery') {
+	inputs.file(sharedDiscovery)
+	outputs.dir(output)
+	doLast {
+		def source = sharedDiscovery.getText('UTF-8')
+		def strictGate = 'if (bundled) return metadata;'
+		if (source.count(strictGate) != 1) {
+			throw new GradleException('Review the isolated Minecraft 1.18.2 ModDiscoverer gate port: shared anchor changed.')
+		}
+		def destination = output.get().file(discoveryPath).asFile
+		destination.parentFile.mkdirs()
+		destination.setText(source.replace(strictGate,
+				'if (bundled || net.fabricmc.loader.impl.game.NeoFabricGameVersion.ALLOW_UNMARKED_MODS) return metadata;'), 'UTF-8')
+	}
+}
+
+sourceSets.main.java {
+	srcDir targetJava
+	srcDir files(output).builtBy(generateLegacyDiscovery)
+	exclude { entry -> entry.file in [new File(sharedJava, gameVersionPath), sharedDiscovery] }
+}
+
+sourceSets.main.resources {
+	srcDir targetResources
+	exclude { entry ->
+		entry.file.toPath().startsWith(sharedResources.toPath()) &&
+				(entry.path == 'fabric.mod.json' || entry.path.startsWith('META-INF/neofabric/'))
+	}
+}
+
+def legacyCompiler = javaToolchains.compilerFor {
+	languageVersion = JavaLanguageVersion.of(17)
+}
+[project, project(':minecraft'), project(':junit')].each { target ->
+	if (target != project) {
+		target.layout.buildDirectory.set(target.file('build/minecraft-1.18.2'))
+	}
+	target.tasks.withType(JavaCompile).configureEach {
+		javaCompiler = legacyCompiler
+	}
+}
+
+// These suites assert the standard artifact's whitelist, payloads and strict opt-in policy.
+// CI still runs them on the standard build. The 1.18.2 consumer checks the variant's contract.
+tasks.named('test', Test) {
+	exclude '**/NeoFabricGameVersionTest.class', '**/NeoFabricGateTest.class',
+			'**/BundledApiRegistryTest.class', '**/BundledApiVersionsTest.class', '**/BundledModCandidateFinderTest.class'
+}
+
+spotless {
+	java {
+		target(fileTree(sharedJava) { include '**/*.java' }, fileTree('src/main/legacyJava') { include '**/*.java' },
+				fileTree(targetJava) { include '**/*.java' }, fileTree('src/test/java') { include '**/*.java' },
+				fileTree('src/java17') { include '**/*.java' })
+	}
+}

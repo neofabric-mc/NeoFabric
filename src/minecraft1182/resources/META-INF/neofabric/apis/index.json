@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "apis": {
+    "1.18.2": {
+      "apiVersion": "0.77.0+1.18.2",
+      "resource": "META-INF/neofabric/apis/1.18.2/NeoFabric-API-0.77.0+1.18.2.jar",
+      "sha512": "adb62b0d73e83cf9302a59a55ffe7ca2cf6f4ebb34312ec09e0f56b99ebc173e02dd4f0b8ec059d7262a14857dc1911645b090e460f20fd8e2d48aa5f2fdbefa",
+      "source": "https://modrinth.com/mod/fabric-api/version/qk28POfr"
+    }
+  }
+}

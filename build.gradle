@@ -35,8 +35,15 @@ plugins {
 	id 'me.modmuss50.remotesign' version "0.5.0"
 }
 
+def legacyMinecraft = providers.gradleProperty('mc').orNull == '1.18.2'
+def apiResourceDirectory = file(legacyMinecraft ? 'src/minecraft1182/resources' : 'src/main/resources')
+
 base {
 	archivesName = "neofabric-loader"
+}
+
+if (legacyMinecraft) {
+	layout.buildDirectory.set(file('build/minecraft-1.18.2'))
 }
 
 def ENV = System.getenv()
@@ -87,6 +94,10 @@ sourceSets {
 		java.srcDirs = ['src/main/java', 'src/main/legacyJava']
 	}
 	java17
+}
+
+if (legacyMinecraft) {
+	apply from: rootProject.file('gradle/minecraft-1.18.2.gradle')
 }
 
 configurations {
@@ -180,7 +191,7 @@ jar {
 test {
 	useJUnitPlatform()
 	javaLauncher = javaToolchains.launcherFor {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(legacyMinecraft ? 17 : 21)
 	}
 	testLogging {
 		exceptionFormat = 'full'
@@ -256,7 +267,7 @@ tasks.register('fatJar', ShadowJar) {
 	outputs.upToDateWhen { false }
 }
 
-File proguardTmpFile = file("build/tmp/fabric-loader-${version}.jar")
+File proguardTmpFile = layout.buildDirectory.file("tmp/fabric-loader-${version}.jar").get().asFile
 
 import proguard.gradle.ProGuardTask
 
@@ -296,7 +307,10 @@ tasks.register('finalJar', Zip) {
 	into('META-INF/versions/17') {
 		from sourceSets.java17.output
 	}
-	destinationDirectory = file("build/libs")
+	destinationDirectory = layout.buildDirectory.dir('libs')
+	if (legacyMinecraft) {
+		archiveBaseName = 'neofabric-1.18.2'
+	}
 	archiveExtension = "jar"
 }
 
@@ -305,10 +319,10 @@ build.dependsOn finalJar
 tasks.register('verifyBundledApi') {
 	dependsOn fatJar, finalJar
 	def indexResource = 'META-INF/neofabric/apis/index.json'
-	def indexFile = file("src/main/resources/${indexResource}")
+	def indexFile = new File(apiResourceDirectory, indexResource)
 	inputs.file(indexFile)
-	inputs.files(fileTree('src/main/resources/META-INF/neofabric') { include '**/*.jar' })
-	inputs.file('src/main/resources/fabric.mod.json')
+	inputs.files(fileTree(new File(apiResourceDirectory, 'META-INF/neofabric')) { include '**/*.jar' })
+	inputs.file(new File(apiResourceDirectory, 'fabric.mod.json'))
 	inputs.files(fatJar.archiveFile, finalJar.archiveFile)
 
 	doLast {
@@ -317,7 +331,7 @@ tasks.register('verifyBundledApi') {
 			throw new GradleException('Invalid or empty bundled NeoFabric API index')
 		}
 
-		def supportedVersions = new groovy.json.JsonSlurper().parse(file('src/main/resources/fabric.mod.json')).depends.minecraft
+		def supportedVersions = new groovy.json.JsonSlurper().parse(new File(apiResourceDirectory, 'fabric.mod.json')).depends.minecraft
 		def originals = [(indexResource): indexFile.bytes]
 		def indexedApiPaths = new LinkedHashSet<String>()
 
@@ -329,7 +343,7 @@ tasks.register('verifyBundledApi') {
 				throw new GradleException("Invalid bundled API entry for Minecraft ${minecraftVersion}")
 			}
 
-			def originalApi = file("src/main/resources/${api.resource}")
+			def originalApi = new File(apiResourceDirectory, api.resource)
 			if (!originalApi.isFile()) throw new GradleException("Missing bundled API resource: ${api.resource}")
 			byte[] bytes = originalApi.bytes
 			def checksum = java.security.MessageDigest.getInstance('SHA-512').digest(bytes).encodeHex().toString()
@@ -350,8 +364,8 @@ tasks.register('verifyBundledApi') {
 			originals[api.resource] = bytes
 		}
 
-		def actualApiPaths = fileTree('src/main/resources/META-INF/neofabric') { include '**/*.jar' }.files.collect { resource ->
-			file('src/main/resources').toPath().relativize(resource.toPath()).toString().replace('\\', '/')
+		def actualApiPaths = fileTree(new File(apiResourceDirectory, 'META-INF/neofabric')) { include '**/*.jar' }.files.collect { resource ->
+			apiResourceDirectory.toPath().relativize(resource.toPath()).toString().replace('\\', '/')
 		}.toSet()
 		if (actualApiPaths != indexedApiPaths) throw new GradleException('Bundled API resources and index do not match')
 
@@ -397,8 +411,8 @@ tasks.register('copyJson') {
 	def inJson = file('src/main/resources/fabric-installer.json')
 	def inLwJson = file('src/main/resources/fabric-installer.launchwrapper.json')
 
-	def outJson = file("build/libs/${project.base.archivesName.get()}-${version}.json")
-	def outLwJson = file("build/libs/${project.base.archivesName.get()}-${version}.launchwrapper.json")
+	def outJson = layout.buildDirectory.file("libs/${project.base.archivesName.get()}-${version}.json").get().asFile
+	def outLwJson = layout.buildDirectory.file("libs/${project.base.archivesName.get()}-${version}.launchwrapper.json").get().asFile
 
 	inputs.files(inJson, inLwJson)
 	outputs.files(outJson, outLwJson)
@@ -467,7 +481,7 @@ tasks.withType(GenerateModuleMetadata) {
 	enabled = false
 }
 
-File signedJar = file("build/libs/fabric-loader-${version}-signed.jar")
+File signedJar = layout.buildDirectory.file("libs/fabric-loader-${version}-signed.jar").get().asFile
 
 remoteSign {
 	requestUrl = ENV.SIGNING_SERVER

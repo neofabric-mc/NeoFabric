@@ -5,7 +5,9 @@ def minecraftVersion = project.minecraftTestVersion
 def yarnBuild = project.minecraftTestYarnBuild
 def javaVersion = project.minecraftTestJavaVersion as Integer
 def sharedSources = rootProject.file(project.findProperty('minecraftTestSourceSet') ?: 'minecraft/minecraft-test-multiversion/src')
-def apiIndex = rootProject.file('src/main/resources/META-INF/neofabric/apis/index.json')
+def apiIndex = rootProject.file(minecraftVersion == '1.18.2'
+		? 'src/minecraft1182/resources/META-INF/neofabric/apis/index.json'
+		: 'src/main/resources/META-INF/neofabric/apis/index.json')
 
 base {
 	archivesName = "neofabric-minecraft-test-${minecraftVersion}"
@@ -33,9 +35,11 @@ spotless {
 	}
 }
 
-rootProject.spotless {
-	java {
-		target(rootProject.sourceSets.collect { it.allJava }, rootProject.fileTree('minecraft/minecraft-test-multiversion/src') { include '**/*.java' }, rootProject.fileTree('minecraft/minecraft-test-1.21-shared/src') { include '**/*.java' })
+if (minecraftVersion != '1.18.2') {
+	rootProject.spotless {
+		java {
+			target(rootProject.sourceSets.collect { it.allJava }, rootProject.fileTree('minecraft/minecraft-test-multiversion/src') { include '**/*.java' }, rootProject.fileTree('minecraft/minecraft-test-1.21-shared/src') { include '**/*.java' })
+		}
 	}
 }
 
