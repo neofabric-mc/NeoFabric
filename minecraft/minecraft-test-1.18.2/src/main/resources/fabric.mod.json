@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "neofabric-legacy-test",
+  "name": "NeoFabric 1.18.2 integration fixture",
+  "version": "1.0.0",
+  "depends": {
+    "minecraft": "${minecraftVersion}",
+    "fabric-api": "0.77.0+1.18.2"
+  }
+}

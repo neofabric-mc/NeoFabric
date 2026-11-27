@@ -1,10 +1,15 @@
 name: Build NeoFabric
-on: [push, workflow_dispatch]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Check release branding
         run: python3 .github/scripts/check-branding.py
       - uses: actions/setup-java@v4
@@ -19,6 +24,18 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew build -Pneofabric.minecraftTestVersion=none --stacktrace --max-workers=2
+      - name: Compare the standard Loader with the base branch
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/master' }}
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/neofabric-base" "$BASE_REF"
+          baseline="$RUNNER_TEMP/neofabric-base"
+          bash "$baseline/gradlew" -p "$baseline" finalJar -Pneofabric.minecraftTestVersion=none --stacktrace --max-workers=2
+          standard_jar() {
+            find "$1/build/libs" -maxdepth 1 -name 'neofabric-loader-*.jar' ! -name '*-fat.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar'
+          }
+          python3 .github/scripts/compare-standard-jars.py "$(standard_jar "$baseline")" "$(standard_jar "$PWD")"
       - name: Upload core test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -71,9 +88,39 @@ jobs:
           path: '**/build/test-results/'
           if-no-files-found: ignore
 
+  build-1-18-2:
+    name: build-1.18.2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: |
+            8
+            17
+            21
+          distribution: temurin
+      - name: Build and test Minecraft 1.18.2
+        run: |
+          chmod +x gradlew
+          ./gradlew build -Pmc=1.18.2 --stacktrace --max-workers=2
+      - name: Upload 1.18.2 test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeoFabric-tests-1.18.2
+          path: minecraft/minecraft-test-1.18.2/build/test-results/
+          if-no-files-found: error
+      - name: Upload 1.18.2 Loader
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeoFabric-jar-1.18.2
+          path: build/minecraft-1.18.2/libs/neofabric-1.18.2-*.jar
+          if-no-files-found: error
+
   regression-summary:
     if: always()
-    needs: [build, integration]
+    needs: [build, integration, build-1-18-2]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,10 +128,11 @@ jobs:
         with:
           pattern: NeoFabric-tests-*
           path: reports
-      - name: Require passing reports for all eighteen versions
+      - name: Require passing reports for all nineteen versions
         run: python3 .github/scripts/summarize-tests.py reports
       - name: Require every build and integration job to pass
         env:
           CORE_RESULT: ${{ needs.build.result }}
           INTEGRATION_RESULT: ${{ needs.integration.result }}
-        run: test "$CORE_RESULT" = success && test "$INTEGRATION_RESULT" = success
+          LEGACY_RESULT: ${{ needs['build-1-18-2'].result }}
+        run: test "$CORE_RESULT" = success && test "$INTEGRATION_RESULT" = success && test "$LEGACY_RESULT" = success

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "fabricloader",
+  "name": "NeoFabric",
+  "version": "${version}",
+  "environment": "*",
+  "description": "NeoFabric",
+  "neofabric": true,
+  "depends": {
+    "minecraft": ["1.18.2"],
+    "java": ">=17"
+  },
+  "contact": {
+    "homepage": "https://fabricmc.net",
+    "irc": "ircs://irc.esper.net:6697/fabric",
+    "issues": "https://github.com/FabricMC/fabric-loader/issues",
+    "sources": "https://github.com/FabricMC/fabric-loader"
+  },
+  "license": "Apache-2.0",
+  "icon": "assets/fabricloader/icon.png",
+  "authors": [
+    "FabricMC"
+  ]
+}

@@ -1,0 +1,6 @@
+ext.minecraftTestVersion = '1.18.2'
+ext.minecraftTestYarnBuild = 4
+ext.minecraftTestJavaVersion = 17
+ext.minecraftTestSourceSet = 'minecraft/minecraft-test-1.18.2/src'
+
+apply from: rootProject.file('minecraft/minecraft-test-multiversion/build.gradle')
